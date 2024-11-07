@@ -13,6 +13,25 @@ $getTabResult = mysqli_query($conn,$getTabSql);
 if(mysqli_num_rows($getTabResult) > 0){
 	$tr = mysqli_fetch_Array($getTabResult);
 	$mapMenuIds = $tr['MenuId'];
+	if($roleId == "4"){
+		$mapMenuIds = "";
+		require 'EmployeeTenentId.php';
+		$classObj = new EmployeeTenentId();
+		$empInfo = $classObj->getEmployeeInfo($conn,$empId);
+		$tenentId = $empInfo["tenentId"];
+		$menuSql = "SELECT `MenuId` FROM `Menu` WHERE `Tenent_Id` = $tenentId";
+		$menuQuery=mysqli_query($conn,$menuSql);
+		while($menuRow = mysqli_fetch_assoc($menuQuery)){
+			$mId = $menuRow["MenuId"];
+			if($mapMenuIds == ""){
+				$mapMenuIds .= "$mId";
+			}
+			else{
+				$mapMenuIds .= ",$mId";
+			}
+		}
+
+	}
 	$tabId = $tr['TabId'];
 
 	if($tabId != null || $tabId != ""){

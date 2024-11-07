@@ -2,8 +2,12 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers:content-type");
 include("dbConfiguration.php");
+require 'EmployeeTenentId.php';
 $empId=$_REQUEST['empId'];
 $roleId=$_REQUEST['roleId'];
+
+$empTenObj = new EmployeeTenentId();
+$tenentId = $empTenObj->getTenentIdByEmpId($conn,$empId);
 
 $menuArr = array();
 /* 
@@ -41,6 +45,9 @@ while($arow = mysqli_fetch_assoc($approverQuery)){
 */
 
 $roleSql = "SELECT distinct `MenuId` FROM `Role` WHERE `RoleId` = '$roleId' ";
+if($roleId == 4){
+	$roleSql = "SELECT distinct `MenuId` FROM `Role` WHERE `Tenent_Id` = $tenentId ";
+}
 $roleQuery=mysqli_query($conn,$roleSql);
 while($roleRow = mysqli_fetch_assoc($roleQuery)){
 	$roleMenuId = $roleRow["MenuId"];
@@ -266,18 +273,20 @@ $confSql = "Select * from configuration";
 $confQuery = mysqli_query($conn, $confSql);
 $conf = mysqli_fetch_assoc($confQuery);
 $confObj = new StdClass;
-$confObj -> inf = $conf['inf'];
-$confObj -> conn = $conf['conf'];
-$confObj -> Start = $conf['start'];
-$confObj -> End = $conf['end'];
-$confObj -> Battery = $conf['Battery'];
-$confObj -> Image = $conf['image'];
+$confObj->inf = $conf['inf'];
+$confObj->conn = $conf['conf'];
+$confObj->Start = $conf['start'];
+$confObj->End = $conf['end'];
+$confObj->Battery = $conf['Battery'];
+$confObj->Image = $conf['image'];
 $res = new StdClass;
 $res->menu = $resultArr;
 $res->conf = $confObj;
 //$output = array();
 //$output = array('menu' => $resultArr);
 echo json_encode($res);
+
+// file_put_contents('/var/www/trinityapplab.co.in/UniversalApp/log/checklist.log', date("Y-m-d H:i:s").' '.json_encode($res)."\n", FILE_APPEND);
 ?>
 
 <?php

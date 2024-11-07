@@ -2,7 +2,7 @@
 include("dbConfiguration.php");
 $empId=$_REQUEST['empId'];
 
-$startStopSql = "SELECT a.Event, date(a.MobileDateTime) as AttDate FROM Activity a join Employees e on a.EmpId = e.EmpId and e.Active = 1 where a.EmpId = '$empId' and a.Event in ('Start','Stop') ORDER by a.ActivityId DESC LIMIT 0,1";
+$startStopSql = "SELECT a.Event, date(a.MobileDateTime) as AttDate FROM Activity a join Employees e on a.EmpId = e.EmpId and e.Active = 1 where a.EmpId = '$empId' and date(a.MobileDateTime)=curDate() and a.Event in ('Start','Stop') ORDER by a.ActivityId DESC LIMIT 0,1";
 // echo $startStopSql;
 $startStopQuery = mysqli_query($conn, $startStopSql);
 $startStopRowcount=mysqli_num_rows($startStopQuery);
@@ -89,6 +89,10 @@ while($row = mysqli_fetch_assoc($query)){
 	$geofenceDistance = $row["GeofenceDistance"];
 	$isGeofence = $row["IsGeofence"];
 }
+$confSql = "Select * from configuration";
+$confQuery = mysqli_query($conn, $confSql);
+$conf = mysqli_fetch_assoc($confQuery);
+
 $output = new StdClass;
 $empConf = "SELECT * FROM `EmpProfileConfigration`";
 $empConfQuery = mysqli_query($conn, $empConf);
@@ -113,6 +117,8 @@ $output -> attendanceStatus = $attStatus;
 $output -> attendanceTime = $attendanceTime;
 $output -> geofenceLatlong = $geofenceLatlong;
 $output -> geofenceDistance = $geofenceDistance;
+$output -> periodicRadius = explode(":", $conf["PeriodicData"])[0];
+$output -> periodicTime = explode(":", $conf["PeriodicData"])[1];
 $output -> isGeofence = $isGeofence;
 $output -> did = 15;
 echo json_encode($output);

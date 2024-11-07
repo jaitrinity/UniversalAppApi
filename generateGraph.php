@@ -10,6 +10,7 @@ $jsonData=json_decode($requestJson);
 $loginEmpId = $jsonData->loginEmpId;
 $loginEmpRoleId = $jsonData->loginEmpRoleId;
 $graphType = $jsonData->graphType;
+$tenentId = $jsonData->tenentId;
 if($graphType == 1){
 	$sql = "SELECT s.MenuId, m.Cat, m.Sub, m.Caption FROM Sampling s join Menu m on s.MenuId = m.MenuId GROUP by s.MenuId";
 	$query = mysqli_query($conn,$sql);
@@ -144,9 +145,21 @@ if($graphType == 1){
 else if($graphType == 2){
 	$filterSql = "";
 	if($loginEmpRoleId != 4){
-		$filterSql .= "and a.EmpId='$loginEmpId'";
+		$empList = [];
+		$empSql = "SELECT * FROM `Employees` WHERE (`RMId` = '$loginEmpId' or `EmpId` = '$loginEmpId') and `Tenent_Id` = $tenentId and `Active` = 1";
+		$empQuery=mysqli_query($conn,$empSql);
+		if(mysqli_num_rows($empQuery) !=0){
+			while($row11 = mysqli_fetch_assoc($empQuery)){
+				array_push($empList,$row11["EmpId"]);
+			}
+		}
+		array_push($empList,$loginEmpId);
+
+		$impEmp = implode("','", $empList);
+
+		$filterSql .= "and a.EmpId in ('$impEmp') ";
 	}
-	$sql = "SELECT m.MenuId, m.Cat, m.Sub, m.Caption, count(a.ActivityId) as DoneCount FROM Menu m left join Activity a on m.MenuId = a.MenuId and a.Event = 'Submit' where 1=1 $filterSql GROUP by m.MenuId";
+	$sql = "SELECT m.MenuId, m.Cat, m.Sub, m.Caption, count(a.ActivityId) as DoneCount FROM Menu m left join Activity a on m.MenuId = a.MenuId and a.Event = 'Submit' where 1=1 and m.Tenent_Id=$tenentId $filterSql GROUP by m.MenuId";
 	$query = mysqli_query($conn,$sql);
 	$dataArr = array();
 	$labelArr = array();

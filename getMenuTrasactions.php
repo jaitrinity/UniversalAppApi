@@ -32,6 +32,15 @@ if($loginEmpRoleId == '4'){
 
 }
 else{
+
+	$empSql = "SELECT * FROM `Employees` WHERE `RMId`='$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1";
+	$empQuery=mysqli_query($conn,$empSql);
+	if(mysqli_num_rows($empQuery) !=0){
+		while($row11 = mysqli_fetch_assoc($empQuery)){
+			array_push($empList,$row11["EmpId"]);
+		}
+	}
+
 	array_push($empList,$loginEmpId);
 }
 
@@ -94,22 +103,32 @@ for($a=0;$a<count($topThreeCheckpointsList);$a++){
 $output = array();
 $wrappedList = [];
 
-$unionSql = "select DISTINCT t.`ActivityId` from (
-SELECT `ActivityId` FROM `Mapping` where (`Mapping`.`EmpId` in ('$loginEmpId') OR `Mapping`.`Verifier` in ('$loginEmpId') OR `Mapping`.`Approver` in ('$loginEmpId')) and `Mapping`.`MenuId` = $menuId and `Mapping`.`ActivityId` != 0
+// $unionSql = "select DISTINCT t.`ActivityId` from (
+// SELECT `ActivityId` FROM `Mapping` where (`Mapping`.`EmpId` in ('$loginEmpId') OR `Mapping`.`Verifier` in ('$loginEmpId') OR `Mapping`.`Approver` in ('$loginEmpId')) and `Mapping`.`MenuId` = $menuId and `Mapping`.`ActivityId` != 0
+// UNION
+// select `ActivityId` from `Activity` where `Activity`.`EmpId` in ('$loginEmpId') and `Activity`.`MenuId` = $menuId and `Activity`.`Event` = 'Submit') t";
+
+$unionSql = "SELECT DISTINCT t.`ActivityId` from (
+SELECT m.`ActivityId` FROM `Mapping` m join `Activity` a on m.`ActivityId`=a.`ActivityId` and a.`Event`='Submit' where (m.`EmpId` in ('$loginEmpId') OR m.`Verifier` in ('$loginEmpId') OR m.`Approver` in ('$loginEmpId')) and m.`MenuId` = $menuId and m.`ActivityId` != 0
 UNION
-select `ActivityId` from `Activity` where `Activity`.`EmpId` in ('$loginEmpId') and `Activity`.`MenuId` = $menuId and `Activity`.`Event` = 'Submit') t";
+SELECT `ActivityId` from `Activity` where `EmpId` in ('$loginEmpId') and `MenuId` = $menuId and `Event` = 'Submit'
+UNION 
+SELECT `ActivityId` from `FlowActivityMaster` where `EmpId` in ('$loginEmpId') and `MenuId` = $menuId and `FlowActivityId` is null ) t";
 
 
-$sql = "SELECT distinct `h`.`ActivityId`, `h`.`ServerDateTime`, `h`.`Status`, `h`.`VerifierActivityId`, 
-`h`.`ApproverActivityId`, `a`.`EmpId` as fillingByEmpId, `e`.`Name` as fillerByEmpName, a.GeoLocation as fillingByLatlong, `a1`.`MenuId`, `a1`.`EmpId` as verifiedByEmpId, 
-`e1`.`Name` as verifiedByEmpName, a1.GeoLocation as verifiedByLatlong, `a1`.`ServerDateTime` as verifiedDate, `a2`.`EmpId` as approvedByEmpId, 
-`e2`.`Name` as approvedByEmpName, a2.GeoLocation as approvedByLatlong, `a2`.`ServerDateTime` as approvedDate FROM `TransactionHDR` h 
+$sql = "SELECT distinct `h`.`ActivityId`, `a`.`MobileDateTime`, `h`.`Status`, h.`TotalQuesCount`, h.`CorrectQuesCount`, `h`.`VerifierActivityId`, 
+`h`.`ApproverActivityId`, `a`.`EmpId` as fillingByEmpId, `e`.`Name` as fillerByEmpName, a.GeoLocation as fillingByLatlong, a.`TimeDuration`, `a1`.`MenuId`, `a1`.`EmpId` as verifiedByEmpId, veri.Name as verifierName,
+`e1`.`Name` as verifiedByEmpName, a1.GeoLocation as verifiedByLatlong, `a1`.`MobileDateTime` as verifiedDate, `a2`.`EmpId` as approvedByEmpId, 
+`e2`.`Name` as approvedByEmpName, app.Name as approverName, a2.GeoLocation as approvedByLatlong, `a2`.`MobileDateTime` as approvedDate FROM `TransactionHDR` h 
 join `Activity` a on `h`.`ActivityId` = `a`.`ActivityId`
+left join `Mapping` m on h.ActivityId = m.ActivityId
 left join `Activity` a1 on `h`.`VerifierActivityId` = `a1`.`ActivityId` 
 left join `Activity` a2 on `h`.`ApproverActivityId` = `a2`.`ActivityId`
 left join `Employees` e on `a`.`EmpId` = `e`.`EmpId` 
 left join `Employees` e1 on `a1`.`EmpId` = `e1`.`EmpId` 
-left join `Employees` e2 on `a2`.`EmpId` = `e2`.`EmpId` 
+left join `Employees` e2 on `a2`.`EmpId` = `e2`.`EmpId`
+left join `Employees` veri on `m`.`Verifier` = `veri`.`EmpId` 
+left join `Employees` app on `m`.`Approver` = `app`.`EmpId` 
 where `h`.`ActivityId` in ($unionSql) order by `h`.`ActivityId` desc";
 
 // echo $sql;
@@ -117,14 +136,17 @@ where `h`.`ActivityId` in ($unionSql) order by `h`.`ActivityId` desc";
 $query=mysqli_query($conn,$sql);
 while($row = mysqli_fetch_assoc($query)){
 	$activityId = $row["ActivityId"];
-	$serverDateTime = $row["ServerDateTime"];
+	$serverDateTime = $row["MobileDateTime"];
 	$verifierActivityId = $row["VerifierActivityId"];
 	$approverActivityId = $row["ApproverActivityId"];
 	$verifiedByEmpName = $row["verifiedByEmpName"];
+	$verifierName = $row["verifierName"];
 	$verifiedDate = $row["verifiedDate"];
 	$approvedByEmpName = $row["approvedByEmpName"];
+	$approverName = $row["approverName"];
 	$approvedDate = $row["approvedDate"];
 	$status = $row["Status"];
+	$timeDuration = $row["TimeDuration"];
 
 
 	$fillingByEmpId = $row["fillingByEmpId"];
@@ -143,18 +165,18 @@ while($row = mysqli_fetch_assoc($query)){
 	$topSecondCheckpointValue = "";
 	$topThirdCheckpointValue = "";
 
-	$transactionDetList = prepareTransactionDet($conn, $activityId);
-	for($b=0;$b<count($transactionDetList);$b++){
-		if($topFirstCheckpointId == $transactionDetList[$b]->checkpointId){
-			$topFirstCheckpointValue = $transactionDetList[$b]->value;
-		}
-		if($topSecondCheckpointId == $transactionDetList[$b]->checkpointId){
-			$topSecondCheckpointValue = $transactionDetList[$b]->value;
-		}
-		if($topThirdCheckpointId == $transactionDetList[$b]->checkpointId){
-			$topThirdCheckpointValue = $transactionDetList[$b]->value;
-		}
-	}
+	// $transactionDetList = prepareTransactionDet($conn, $activityId);
+	// for($b=0;$b<count($transactionDetList);$b++){
+	// 	if($topFirstCheckpointId == $transactionDetList[$b]->checkpointId){
+	// 		$topFirstCheckpointValue = $transactionDetList[$b]->value;
+	// 	}
+	// 	if($topSecondCheckpointId == $transactionDetList[$b]->checkpointId){
+	// 		$topSecondCheckpointValue = $transactionDetList[$b]->value;
+	// 	}
+	// 	if($topThirdCheckpointId == $transactionDetList[$b]->checkpointId){
+	// 		$topThirdCheckpointValue = $transactionDetList[$b]->value;
+	// 	}
+	// }
 
 
 	$isVerifierExist = false;
@@ -215,6 +237,24 @@ while($row = mysqli_fetch_assoc($query)){
 	if(!$isApproverExist)
 		$pendingForApprove = "NA";
 
+	$passPercent = 50;
+	$totalQuesCount = $row["TotalQuesCount"];
+	$correctQuesCount = $row["CorrectQuesCount"];
+
+	$totalQuesCount = $totalQuesCount == null ? 0 : $totalQuesCount;
+	$correctQuesCount = $correctQuesCount == null ? 0 : $correctQuesCount;
+
+	$trainingResult = "Fail";
+	$resultPercent = 0;
+	if($correctQuesCount != 0){
+		$resultPercent = ($correctQuesCount/$totalQuesCount) * 100;
+		$resultPercent = round($resultPercent,2);
+		if($resultPercent >= $passPercent){
+			$trainingResult = "Pass";
+		} 
+	}
+	
+
 	
 	$json = new StdClass;
 	$json -> pendingForApprove = $pendingForApprove;
@@ -225,17 +265,19 @@ while($row = mysqli_fetch_assoc($query)){
 	$json -> dateTime = $serverDateTime;
 	$json -> approveDetList = [];
 	$json -> myRoleForTask = $myRoleForTask;
-	$json -> transactionDetList = $transactionDetList;
+	// $json -> transactionDetList = $transactionDetList;
 	$json -> topFirstCheckpointDesc = $topFirstCheckpointDesc;
 	$json -> topThirdCheckpointDesc = $topThirdCheckpointDesc;
 	$json -> fillingByEmpId = $fillingByEmpId;
 	$json -> fillingBy = $fillerByEmpName;
 	$json -> fillingByLatlong = $fillingByLatlong;
 	$json -> verifiedByEmpId = $verifiedByEmpId;
-	$json -> verifiedBy = $verifiedByEmpName;
+	$json -> verifiedBy = $verifiedByEmpName == null ? $verifierName : $verifiedByEmpName;
+	// $json -> verifierName = $verifierName;
 	$json -> verifiedByLatlong = $verifiedByLatlong;
 	$json -> approvedByEmpId = $approvedByEmpId;
-	$json -> approvedBy = $approvedByEmpName;
+	$json -> approvedBy = $approvedByEmpName == null ? $approverName : $approvedByEmpName;
+	// $json -> approverName = $approverName;
 	$json -> approvedByLatlong = $approvedByLatlong;
 	$json -> verifiedDate = $verifiedDate;
 	$json -> approvedDate = $approvedDate;
@@ -250,6 +292,12 @@ while($row = mysqli_fetch_assoc($query)){
 	$json -> topThirdCheckpointValue = $topThirdCheckpointValue;
 	$json -> topThirdKey = "topThirdCheckpointValue";
 	$json -> status = $status;
+	$json -> statusTxt = $status;
+	$json -> timeDuration = $timeDuration;
+	$json -> totalQuesCount = $totalQuesCount;
+	$json -> correctQuesCount = $correctQuesCount;
+	$json -> trainingResult = $trainingResult;
+	$json -> resultPercent = $resultPercent;
 	
 	array_push($wrappedList,$json);
 

@@ -18,13 +18,13 @@ $t=date("YmdHis");
 $target_dir = "files/".$dir."/";
 
 $activityId=$_REQUEST["trans_id"];
-$company=$_REQUEST["company"];
-$chk_id=$_REQUEST["chk_id"];
-$depend_upon=$_REQUEST["depend_upon"];
-$caption=$_REQUEST["caption"];
-$timestamp = $_REQUEST["timestamp"];
-$latlong = $_REQUEST["latLong"];
-$dateTime = $_REQUEST["dateTime"];
+$company='';
+$chk_id='';
+$depend_upon='';
+$caption='';
+$timestamp = '';
+$latlong = '';
+$dateTime = '';
 
 $requestJson = array('activityId' => $activityId, 'company' => $company, 'chk_id' => $chk_id, 'depend_upon' => $depend_upon, 'caption' => $caption, 'timestamp' => $timestamp, 'latlong' => $latlong, 'dateTime' => $dateTime );
 
@@ -54,23 +54,20 @@ if (move_uploaded_file($_FILES["attachment"]["tmp_name"], $target_file))
 {
 	$parts = explode('/', $_SERVER['REQUEST_URI']);
 	$link = $_SERVER['HTTP_HOST']; 
-	$fileURL = "https://".$link."/".$parts[1]."/".$target_file;
+	$fileURL = "http://".$link."/".$parts[1]."/".$target_file;
 	
-	$selectQuery = "Select `Value`, `Lat_Long`, `Date_time` from TransactionDTL where ActivityId = '$activityId' and ChkId = '$cpId'  and DependChkId = '$dependId' 
-	and Value like 'http%'";
+	$selectQuery = "SELECT `Audio` from `TransactionHDR` where `ActivityId` = '$activityId' and `Audio` like 'http%'";
 	// file_put_contents('/var/www/trinityapplab.co.in/UniversalApp/log/save_img_'.date("Y-m-d").'.log', date("Y-m-d H:i:s").' '.$selectQuery."\n", FILE_APPEND);
 	// echo $selectQuery;
 	$selectData = mysqli_query($conn,$selectQuery);
 	$rowcount = mysqli_num_rows($selectData);
 	if($rowcount > 0){
 		$sr = mysqli_fetch_assoc($selectData);
-		$prevValue = $sr['Value'];
-		$prevLat_Long = $sr['Lat_Long'];
-		$prevDatetime = $sr["Date_time"];
-		$query = "Update TransactionDTL set Value = '$prevValue,$fileURL', Lat_Long = '$prevLat_Long:$latlong', `Date_time` = '$prevDatetime,$dateTime' where ActivityId = '$activityId' and ChkId = '$cpId'  and DependChkId = '$dependId'";	
+		$prevValue = $sr['Audio'];
+		$query = "UPDATE `TransactionHDR` set `Audio` = '$prevValue,$fileURL' where `ActivityId` = '$activityId'";	
 	}
 	else{
-		$query = "Update TransactionDTL set Value = '$fileURL', Lat_Long = '$latlong', `Date_time` = '$dateTime' where ActivityId = '$activityId' and ChkId = '$cpId'  and DependChkId = '$dependId'";	
+		$query = "UPDATE `TransactionHDR` set `Audio` = '$fileURL' where `ActivityId` = '$activityId' ";	
 	}
 	// file_put_contents('/var/www/trinityapplab.co.in/UniversalApp/log/save_img_'.date("Y-m-d").'.log', date("Y-m-d H:i:s").' '.$query."\n", FILE_APPEND);
 	mysqli_query($conn,$query);

@@ -345,7 +345,7 @@ class NewAssign1{
 					if($apcp['Dependent'] == "1"){
 						$apcplogicArray = explode(":",trim($apcp['Logic']," "));
 						$apcplogicString = "";
-						for($apcpl=0;$vcpl< count($apcplogicArray);$apcpl++){
+						for($apcpl=0;$apcpl< count($apcplogicArray);$apcpl++){
 							if($apcpl == 0  && $apcplogicArray[$apcpl] != null && $apcplogicArray[$apcpl] != ""){
 								$apcplogicString .= $apcplogicArray[$apcpl];
 							}

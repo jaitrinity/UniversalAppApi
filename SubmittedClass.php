@@ -75,7 +75,7 @@ class SubmittedClass{
 		$response -> tabName ='Completed';
 		$response -> menu = $submitList;
 
-		// file_put_contents('/var/www/trinityapplab.co.in/UniApp/log/Submitted_'.date("Y-m-d").'.log', date("Y-m-d H:i:s").' '.json_encode($response)."\n", FILE_APPEND);
+		// file_put_contents('/var/www/trinityapplab.co.in/UniversalApp/log/Submitted_'.date("Y-m-d").'.log', date("Y-m-d H:i:s").' '.json_encode($response)."\n", FILE_APPEND);
 
 		return $response;
 	}
@@ -100,13 +100,13 @@ class SubmittedClass{
 			if($flowActId != 0){
 				$apFilledCpSql = "Select r2.*,r1.* 
 				 from
-				 (Select d.ChkId,d.Value as answer from TransactionDTL d
+				 (Select d.SRNo,d.ChkId,d.Value as answer from TransactionDTL d
 				 where d.ActivityId = '$flowActId' and d.DependChkId = 0
 				 )r1
 				 right join 
 				 (Select c.* from Checkpoints c
 				 where c.CheckpointId in ($filledCpString)
-				 ) r2 on (r1.ChkId = r2.CheckpointId)";
+				 ) r2 on (r1.ChkId = r2.CheckpointId) order by r1.SRNo";
 				 // echo $apFilledCpSql;
 
 				$nLevelFilledQuery=mysqli_query($conn,$apFilledCpSql);
@@ -124,10 +124,10 @@ class SubmittedClass{
 					$apfdpArray = array();
 					if($apfcp['Dependent'] == "1"){
 						$apfdpSql = " Select r1.*,c.* from
-										(Select d.ChkId,d.Value as answer from TransactionDTL d
+										(Select d.SRNo,d.ChkId,d.Value as answer from TransactionDTL d
 										where d.ActivityId = '$flowActId' and d.DependChkId = (".$apfcp['CheckpointId'].")
 										) r1
-										join Checkpoints c on (r1.ChkId = c.CheckpointId)";
+										join Checkpoints c on (r1.ChkId = c.CheckpointId) order by r1.SRNo";
 										
 						$apfdpQuery = mysqli_query($conn,$apfdpSql);
 						while($apfdp = mysqli_fetch_assoc($apfdpQuery)){

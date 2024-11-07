@@ -19,12 +19,24 @@ while($row = mysqli_fetch_assoc($query)){
 	array_push($menuArr,$menuId);
 }
 
-$sql = "SELECT distinct `MenuId` FROM `FlowActivityMaster` WHERE find_in_set('$empId', `EmpId`) <> 0 ";
-$query=mysqli_query($conn,$sql);
+$verifierSql = "SELECT distinct mp.MenuId
+				FROM Mapping mp
+				join TransactionHDR th on (mp.ActivityId = th.ActivityId)	
+				WHERE mp.Verifier = '$empId' and mp.Active = 1 and th.Status = 'Created'";
+$verifierQuery=mysqli_query($conn,$verifierSql);
+while($vrow = mysqli_fetch_assoc($verifierQuery)){
+	$vMenuId = $vrow["MenuId"];
+	array_push($menuArr,$vMenuId);
+}
 
-while($row = mysqli_fetch_assoc($query)){
-	$menuId = $row["MenuId"];
-	array_push($menuArr,$menuId);
+$approverSql = "SELECT distinct mp.MenuId
+				FROM Mapping mp
+				join TransactionHDR th on (mp.ActivityId = th.ActivityId)	
+				WHERE mp.Approver = '$empId' and mp.Active = 1 and th.Status = 'Verified'";
+$approverQuery=mysqli_query($conn,$approverSql);
+while($arow = mysqli_fetch_assoc($approverQuery)){
+	$aMenuId = $arow["MenuId"];
+	array_push($menuArr,$aMenuId);
 }
 
 if($roleId == 4){
@@ -49,38 +61,35 @@ else{
 }
 
 
-
-
 $newArr = array_unique($menuArr);
 $newArr = array_values($newArr);
 
 $menuIds = convertListInOperatorValue($newArr);
 //echo $menuIds;
 $chkIdString = "";
-$menuSql = "SELECT `MenuId`,`CheckpointId`,`Verifier`,`Approver`,`3rd_ChkId`,`4th_ChkId`,`5th_ChkId`,`6th_ChkId`,`7th_ChkId`,`8th_ChkId`,`9th_ChkId`,`10th_ChkId` FROM `Menu` WHERE `MenuId` in ($menuIds)";
+$menuSql = "SELECT `MenuId`,`CheckpointId`,`Verifier`,`Approver` FROM `Menu` WHERE `MenuId` in ($menuIds)";
 $menuQuery=mysqli_query($conn,$menuSql);
 while($menuRow = mysqli_fetch_assoc($menuQuery)){
 		$chkId = $menuRow["CheckpointId"];
 		$chkId = str_replace(":",",",$chkId);
 		if($chkIdString == ""){
-			$chkIdString .= $chkId;
+				$chkIdString .= $chkId;
 		}
 		else{
 			$chkIdString .= ",".$chkId;
 		}
-}
-$appSql = "SELECT DISTINCT `FlowCheckpointId` FROM `FlowActivityMaster` where `MenuId` in ($menuIds)";
+		
+		if($menuRow["Verifier"] != ""){
+			$verifier = $menuRow["Verifier"];	
+			$verifier = str_replace(":",",",$verifier);
+			$chkIdString .= ",".$verifier;
+		}
+		if($menuRow["Approver"] != ""){
+			$approver = $menuRow["Approver"];	
+			$approver = str_replace(":",",",$approver);
+			$chkIdString .= ",".$approver;
+		}
 
-$appQuery=mysqli_query($conn,$appSql);
-while($appRow = mysqli_fetch_assoc($appQuery)){
-	$flowCheckpointId = $appRow["FlowCheckpointId"];
-	$flowCheckpointId = str_replace(":",",",$flowCheckpointId);
-	if($chkIdString == ""){
-		$chkIdString .= $flowCheckpointId;
-	}
-	else{
-		$chkIdString .= ",".$flowCheckpointId;
-	}
 }
 
 $rr=0;
@@ -110,7 +119,6 @@ for($ii=0;$ii<count($newCpArr);$ii++){
 		$json -> IsGeofence = $chkpointRow["IsGeofence"];
 		$json -> answer = "";
 		$json -> info = $chkpointRow["Info"];
-		$json -> recording = $chkpointRow["Recording"] == null ? "" : $chkpointRow["Recording"];
 		$json -> reuse = $t;
 
 		if($chkpointRow['IsSql'] == 1){
@@ -212,8 +220,8 @@ for($ii=0;$ii<count($newCpArr);$ii++){
 						$logicJson -> IsGeofence = $logicRow["IsGeofence"];
 						$logicJson -> answer = "";
 						$logicJson -> info = $logicRow["Info"];
-						$logicJson -> recording = $logicRow["Recording"] == null ? "" : $logicRow["Recording"];
 						$logicJson -> reuse = $t1;
+						
 						if($logicRow['IsSql'] == 1){
 						    $valueSql = $logicRow["Value"];
 						    $stmt = mysqli_prepare($conn,$valueSql);
@@ -251,9 +259,10 @@ for($ii=0;$ii<count($newCpArr);$ii++){
 	}
 }
 
-echo json_encode($responseArr);
 
-// file_put_contents('/var/www/trinityapplab.co.in/UniversalApp/log/checkpoint.log', date("Y-m-d H:i:s").' '.json_encode($responseArr)."\n", FILE_APPEND);
+	
+	
+echo json_encode($responseArr);
 ?>
 
 <?php

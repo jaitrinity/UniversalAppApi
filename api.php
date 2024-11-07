@@ -40,6 +40,12 @@ $city = "";
 $state = "";
 $rmName = "";
 $profileUrl = "";
+$isActive = "";
+$geofenceLatlong = "";
+$geofenceDistance = "";
+$isGeofence = "";
+$attendanceStatus = "Stop";
+$attendanceTime = "";
 
 while($row = mysqli_fetch_assoc($query)){
 	$empId = $row["EmpId"];
@@ -73,6 +79,21 @@ while($row = mysqli_fetch_assoc($query)){
 	if($row["ProfileURL"] != null && $row["ProfileURL"] != ""){
 		$profileUrl = $row["ProfileURL"];
 	}	
+
+	$isActive = $row["Active"];
+	$geofenceLatlong = $row["GeofenceLatlong"];
+	$geofenceDistance = $row["GeofenceDistance"];
+	$isGeofence = $row["IsGeofence"];
+
+	$startStopSql = "SELECT a.Event, date_format(a.MobileDateTime,'%H:%i:%s') as AttTime FROM Activity a join Employees e on a.EmpId = e.EmpId and e.Active = 1 where a.EmpId = '$empId' and date(a.MobileDateTime)=curDate() and a.Event in ('Start','Stop') ORDER by a.ActivityId DESC LIMIT 0,1";
+	$startStopQuery = mysqli_query($conn, $startStopSql);
+	$startStopRowcount=mysqli_num_rows($startStopQuery);
+	if($startStopRowcount != 0){
+		$startStopRow = mysqli_fetch_assoc($startStopQuery);
+		$attendanceStatus = $startStopRow['Event'];
+		if($attendanceStatus == 'Start')
+			$attendanceTime = $startStopRow['AttTime'];
+	}
 }
 $output = new StdClass;
 if($empId != ""){
@@ -159,11 +180,19 @@ if($empId != ""){
 			$output -> rmName = $rmName.','.$empConfRow["RmName"];
 			$output -> fieldUser = $fieldUser.','.$empConfRow["FieldUser"];
 			$output -> profileUrl = $profileUrl.','.$empConfRow["ProfileURL"];
+			$output -> isActive = $isActive;
+			$output -> attendanceStatus = $attendanceStatus;
+			$output -> attendanceTime = $attendanceTime;
+			$output -> geofenceLatlong = $geofenceLatlong;
+			$output -> geofenceDistance = $geofenceDistance;
+			$output -> isGeofence = $isGeofence;
 			$output -> inf = $conf['inf'];
 			$output -> conn = $conf['conf'];
 			$output -> Start = $conf['start'];
 			$output -> End = $conf['end'];
 			$output -> Battery = $conf['Battery'];
+			$output -> periodicRadius = explode(":", $conf["PeriodicData"])[0];
+			$output -> periodicTime = explode(":", $conf["PeriodicData"])[1];
 			$output -> did = "$deviceId";
 			$output -> otp = $taskotp;
 		}

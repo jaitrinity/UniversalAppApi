@@ -14,12 +14,16 @@ if(mysqli_num_rows($query) != 0){
 		$empId = $row["EmpId"];
 		$empName = $row["Name"];
 		$empRoleId = $row["RoleId"];
+		$theme = $row["Theme"];
+		$themeExp = explode(":", $theme);
 		
 		$json = array(
 			'empId' => $empId,
 			'empName' => $empName,
 			'empRoleId' => $empRoleId,
-			'tenentId' => $row["Tenent_Id"]
+			'tenentId' => $row["Tenent_Id"],
+			'themeOption' => $themeExp[0],
+			'themeColor' => $themeExp[1]
 		);
 		array_push($empArr,$json);
 	}

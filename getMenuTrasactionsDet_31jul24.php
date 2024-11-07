@@ -37,7 +37,14 @@ $allCp = $cpId.''.$depSql;
 $doneDetList = [];
 // $flowActList=array();
 // $doneSql="SELECT `FlowCheckpointId`, `FlowActivityId` FROM `FlowActivityMaster` where `ActivityId` = '$transactionId' and `FlowActivityId` is not null";
-$doneSql = "SELECT `FlowCheckpointId`, `FlowActivityId`, e.Name as EmpName, `FlowEmpId`, `FlowSubmitDate` FROM FlowActivityMaster fam left join Employees e on fam.FlowEmpId=e.EmpId where `ActivityId` = '$transactionId' and `FlowActivityId` is not null order by fam.Id";
+
+$doneSql = "SELECT '$verifierCpId' as `FlowCheckpointId`,  `VerifierActivityId` as `FlowActivityId` FROM `TransactionHDR` where `ActivityId`=$transactionId and `VerifierActivityId` is not null
+UNION
+SELECT '$approverCpId' as `FlowCheckpointId`, `ApproverActivityId` as `FlowActivityId` FROM `TransactionHDR` where `ActivityId`=$transactionId and `ApproverActivityId` is not null";
+
+// echo $doneSql;
+
+
 $doneQuery=mysqli_query($conn,$doneSql);
 while($doneRow = mysqli_fetch_assoc($doneQuery)){
 	// $flowChkId = $doneRow["FlowCheckpointId"];
@@ -46,8 +53,6 @@ while($doneRow = mysqli_fetch_assoc($doneQuery)){
 	$flowDetList = doneStatusDet($conn,$flowActId);
 	$flowJson = array(
 		'flowActId' => $flowActId,
-		'submitBy' => $doneRow["EmpName"],
-		'submitDate' => $doneRow["FlowSubmitDate"],
 		'flowDetList' => $flowDetList
 	);
 	array_push($doneDetList, $flowJson);
@@ -242,17 +247,6 @@ $approveDetList = prepareStatusDet($conn,$approvedTId);
 
 
 $actionCheckpointList = [];
-$actionSql = "SELECT *  FROM `FlowActivityMaster` WHERE find_in_set('$loginEmpId', `EmpId`) <> 0 and `MenuId`='$menuId' and `ActivityId` = $transactionId and `Status`='$status' and `FlowActivityId` is null order by `Id` LIMIT 0,1";
-$actionQuery=mysqli_query($conn,$actionSql);
-$actionRowCount=mysqli_num_rows($actionQuery);
-if($actionRowCount !=0){
-	$actionRow = mysqli_fetch_assoc($actionQuery);
-	$flowCheckpointId = $actionRow["FlowCheckpointId"];
-
-	$actionCheckpointList = prepareActionCheckpointDet($conn, $flowCheckpointId);
-	
-}
-
 if($pendingForVerify == "Yes" && $verifierCheckpointIdList != ""){
 	$actionCheckpointList = prepareActionCheckpointDet($conn, $verifierCheckpointIdList);
 }
@@ -360,7 +354,7 @@ function prepareActionCheckpointDet($conn, $commaSeparateCp){
 }
 
 function doneStatusDet($conn, $transId){
-	$sql = "SELECT c.`CheckpointId`, c.`Description`, d.`Value`, d.`DependChkId`, c.`Value` as cp_options, c.`TypeId`, d.`Date_time` FROM  `TransactionDTL` d join `Checkpoints` c on  d.`ChkId` = c.`CheckpointId`  WHERE d.`ActivityId` in ($transId) order by d.`SRNo`";
+	$sql = "SELECT `Checkpoints`.`CheckpointId`, `Checkpoints`.`Description`, `TransactionDTL`.`Value`, `TransactionDTL`.`DependChkId`, `Checkpoints`.`Value` as cp_options, `Checkpoints`.`TypeId` FROM  `TransactionDTL` join `Checkpoints` on  `TransactionDTL`.`ChkId` = `Checkpoints`.`CheckpointId`  WHERE `TransactionDTL`.`ActivityId` in ($transId) order by `TransactionDTL`.`SRNo`";
 
 	$query=mysqli_query($conn,$sql);
 
@@ -371,7 +365,6 @@ function doneStatusDet($conn, $transId){
 		$valuee = $roww["Value"];
 		$typeIdd = $roww["TypeId"];
 		$dependChkIdd = $roww["DependChkId"];
-		$dateTimee = $roww["Date_time"];
 		if($dependChkIdd != 0){
 			$jsonDett = new StdClass;
 			$jsonDett -> checkpointId = $checkpointIdd;
@@ -379,7 +372,6 @@ function doneStatusDet($conn, $transId){
 			$jsonDett -> value = $valuee;
 			$jsonDett -> typeId = $typeIdd;
 			$jsonDett -> dependChkId = $dependChkIdd;
-			$jsonDett -> dateTime = $dateTimee;
 			
 			array_push($dependCheckpointDetList,$jsonDett);
 		}
@@ -404,7 +396,6 @@ function doneStatusDet($conn, $transId){
 			// $json -> forVerifier = "";
 			$json -> options = $row["cp_options"];
 			$json -> value = $row["Value"];
-			$json -> dateTime = $row["Date_time"];
 
 			array_push($statusDetList,$json);
 
@@ -443,7 +434,7 @@ function doneStatusDet($conn, $transId){
 }
 
 function prepareStatusDet($conn, $transId){
-	$sql = "SELECT c.`CheckpointId`, c.`Description`, d.`Value`, d.`DependChkId`, c.`Value` as cp_options, c.`TypeId`, d.`Date_time` FROM  `TransactionDTL` d join `Checkpoints` c on  d.`ChkId` = c.`CheckpointId`  WHERE d.`ActivityId` = $transId order by d.`SRNo` ";
+	$sql = "SELECT `Checkpoints`.`CheckpointId`, `Checkpoints`.`Description`, `TransactionDTL`.`Value`, `TransactionDTL`.`DependChkId`, `Checkpoints`.`Value` as cp_options, `Checkpoints`.`TypeId` FROM  `TransactionDTL` join `Checkpoints` on  `TransactionDTL`.`ChkId` = `Checkpoints`.`CheckpointId`  WHERE `TransactionDTL`.`ActivityId` = $transId order by `TransactionDTL`.`SRNo` ";
 
 	$query=mysqli_query($conn,$sql);
 
@@ -454,7 +445,6 @@ function prepareStatusDet($conn, $transId){
 		$valuee = $roww["Value"];
 		$typeIdd = $roww["TypeId"];
 		$dependChkIdd = $roww["DependChkId"];
-		$dateTimee = $roww["Date_time"];
 		if($dependChkIdd != 0){
 			$jsonDett = new StdClass;
 			$jsonDett -> checkpointId = $checkpointIdd;
@@ -462,7 +452,6 @@ function prepareStatusDet($conn, $transId){
 			$jsonDett -> value = $valuee;
 			$jsonDett -> typeId = $typeIdd;
 			$jsonDett -> dependChkId = $dependChkIdd;
-			$jsonDett -> dateTime = $dateTimee;
 			
 			array_push($dependCheckpointDetList,$jsonDett);
 		}
@@ -487,7 +476,6 @@ function prepareStatusDet($conn, $transId){
 			// $json -> forVerifier = "";
 			$json -> options = $row["cp_options"];
 			$json -> value = $row["Value"];
-			$json -> dateTime = $row["Date_time"];
 
 			array_push($statusDetList,$json);
 

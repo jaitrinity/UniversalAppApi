@@ -40,13 +40,30 @@ if($selectType == "assign"){
 		);
 		array_push($assignArr,$json);
 	}
-	$output = array();
 	$output = array('assignList' => $assignArr);
 	echo json_encode($output);
 
 }
 else if($selectType == "activity"){
-	$sql = "SELECT `Activity`.`EmpId`, `Employees`.`Name`  as empName, `Activity`.`MenuId`,`Menu`.`Cat`,`Activity`.`LocationId`,`Location`.`Name` as locName, `Activity`.`Event`,`Activity`.`MobileDateTime` FROM `Activity` left join `Employees` on `Activity`.`EmpId` = `Employees`.`EmpId` left join `Menu` on `Activity`.`MenuId` = `Menu`.`MenuId` left join `Location` on `Activity`.`LocationId` = `Location`.`LocationId` where `Activity`.`EmpId` = '$loginEmpId'";
+	$filterSql = "";
+	if($loginEmpRoleId == "4"){
+		
+	}
+	else{
+		// Self and RM
+		$filterSql .= "and (`RMId` = '$loginEmpId' or `EmpId` = '$loginEmpId')";
+	}
+
+	$underEmpList = array();
+	$sql = "SELECT `EmpId` FROM `Employees` WHERE 1=1 $filterSql and `Tenent_Id`='$tenentId' and `Active`=1";
+	$query=mysqli_query($conn,$sql);
+	while($row = mysqli_fetch_assoc($query)){
+		array_push($underEmpList, $row["EmpId"]);
+	}
+
+	$empIds = implode("','", $underEmpList);
+
+	$sql = "SELECT a.`ActivityId`, `a`.`EmpId`, `e`.`Name`  as empName, `a`.`MenuId`, `m`.`Cat`, `a`.`LocationId`, `l`.`Name` as locName, `a`.`Event`, `a`.`MobileDateTime` FROM `Activity` a left join `Employees` e on `a`.`EmpId` = `e`.`EmpId` left join `Menu` m on `a`.`MenuId` = `m`.`MenuId` left join `Location` l on `a`.`LocationId` = `l`.`LocationId` where `a`.`EmpId` in ('$empIds') order by a.`ActivityId` desc";
 	$query=mysqli_query($conn,$sql);
 
 	$activityArr = array();
@@ -61,6 +78,7 @@ else if($selectType == "activity"){
 		$dateTime = $row["MobileDateTime"];
 		
 		$json = array(
+			'activityId' => $row["ActivityId"],
 			'empId' => $empId,
 			'empName' => $empName,
 			'menuId' => $menuId,
@@ -72,13 +90,20 @@ else if($selectType == "activity"){
 		);
 		array_push($activityArr,$json);
 	}
-	$output = array();
 	$output = array('activityList' => $activityArr);
 	echo json_encode($output);
 
 }
 else if($selectType == "employee"){
-	$sql = "SELECT * FROM `Employees` ";
+	$filterSql = "";
+	if($loginEmpRoleId == 4){
+
+	}
+	else{
+		$filterSql .= "and (e.RMId = '$loginEmpId' or e.EmpId = '$loginEmpId')";
+	}
+	// $sql = "SELECT * FROM `Employees` where 1=1 $filterSql and `Tenent_Id`=$tenentId and `Active`=1 ";
+	$sql = "SELECT e.*, e1.Name as RMName FROM Employees e left join Employees e1 on e.RMId=e1.EmpId where 1=1 $filterSql and e.Tenent_Id=$tenentId";
 	$query=mysqli_query($conn,$sql);
 
 	$empArr = array();
@@ -94,6 +119,7 @@ else if($selectType == "employee"){
 		$city = $row["City"];
 		$state = $row["State"];
 		$rmId = $row["RMId"];
+		$rmName = $row["RMName"];
 		$fieldUser = $row["FieldUser"];
 		$active = $row["Active"];
 
@@ -109,17 +135,33 @@ else if($selectType == "employee"){
 			'city' => $city,
 			'state' => $state,
 			'rmId' => $rmId,
+			'rmName' => $rmName,
 			'fieldUser' => $fieldUser,
 			'active' => $active,
 		);
 		array_push($empArr,$json);
 	}
-	$output = array();
 	$output = array('employeeList' => $empArr);
 	echo json_encode($output);
 }
 else if($selectType == "device"){
-	$sql = "SELECT * FROM `Devices` where `EmpId`='$loginEmpId' ";
+	$filterSql = "";
+	if($loginEmpRoleId == 4){
+
+	}
+	else{
+		$filterSql .= "and (`RMId` = '$loginEmpId' or `EmpId` = '$loginEmpId')";
+	}
+	$underEmpList = array();
+	$sql = "SELECT `EmpId` FROM `Employees` WHERE 1=1 $filterSql and `Tenent_Id`=$tenentId and `Active`=1";
+	$query=mysqli_query($conn,$sql);
+	while($row = mysqli_fetch_assoc($query)){
+		array_push($underEmpList, $row["EmpId"]);
+	}
+
+	$empIds = implode("','", $underEmpList);
+
+	$sql = "SELECT * FROM `Devices` where `EmpId` in ('$empIds') order by `DeviceId` desc";
 	$query=mysqli_query($conn,$sql);
 
 	$deviceArr = array();
@@ -151,12 +193,11 @@ else if($selectType == "device"){
 		);
 		array_push($deviceArr,$json);
 	}
-	$output = array();
 	$output = array('deviceList' => $deviceArr);
 	echo json_encode($output);
 }
 else if($selectType == "location"){
-	$sql = "SELECT * FROM `Location` ";
+	$sql = "SELECT * FROM `Location` where `Tenent_Id`=$tenentId order by `LocationId` desc ";
 	$query=mysqli_query($conn,$sql);
 
 	$locationArr = array();
@@ -164,7 +205,17 @@ else if($selectType == "location"){
 		$locId = $row["LocationId"];
 		$locName = $row["Name"];
 		$geoCoordinate = $row["GeoCoordinates"];
+		$geoCoordinate = str_replace("/", ",", $geoCoordinate);
 		$geoExplode = explode(",", $geoCoordinate);
+		$isActive = $row["Is_Active"];
+		$status = $isActive == 1 ? "Active" : "Deactive";
+
+		$sql2 = "SELECT emp.EmpId as empId, emp.Name as empName from EmployeeLocationMapping empLoc join Employees emp on empLoc.Emp_Id = emp.EmpId where empLoc.LocationId=$locId";
+		$query2=mysqli_query($conn,$sql2);
+		$empArr = array();
+		while($row2 = mysqli_fetch_assoc($query2)){
+			array_push($empArr,$row2);
+		}
 		
 		$json = array(
 			'locId' => $locId,
@@ -172,28 +223,53 @@ else if($selectType == "location"){
 			'geoCoordinate' => $geoCoordinate,
 			'latitude' => $geoExplode[0],
 			'longitude' => $geoExplode[1],
+			'isActive' => $isActive,
+			'status' => $status,
+			'empList' => $empArr
 
 		);
 		array_push($locationArr,$json);
 	}
-	$output = array();
+
 	$output = array('locationList' => $locationArr);
 	echo json_encode($output);
 }
 else if($selectType == "mapping"){
-	$sql = "SELECT `Mapping`.`MappingId`, `Mapping`.`EmpId`, `Employees`.`Name`  as empName, `Mapping`.`MenuId`, `Menu`.`Cat`, `Mapping`.`LocationId`, `Mapping`.`Verifier`, `Mapping`.`Approver`, `Mapping`.`Active` FROM `Mapping` left join `Employees` on `Mapping`.`EmpId` = `Employees`.`EmpId` left join `Menu` on `Mapping`.`MenuId` = `Menu`.`MenuId`";
+	// $sql = "SELECT `m`.`MappingId`, `m`.`EmpId`, `e`.`Name`  as empName, `m`.`MenuId`, `mu`.`Cat`, `m`.`LocationId`, `m`.`Verifier`, `m`.`Approver`, `m`.`Active` FROM `Mapping` m left join `Employees` e on `m`.`EmpId` = `e`.`EmpId` left join `Menu` mu on `m`.`MenuId` = `mu`.`MenuId` order by `m`.`MappingId` desc";
+
+	$filterSql = "";
+	if($loginEmpRoleId == 4){
+
+	}
+	else{
+		$filterSql .= "and (`RMId` = '$loginEmpId' or `EmpId` = '$loginEmpId')";
+	}
+	$underEmpList = array();
+	$sql = "SELECT `EmpId` FROM `Employees` WHERE 1=1 $filterSql and `Tenent_Id`=$tenentId and `Active`=1";
+	$query=mysqli_query($conn,$sql);
+	while($row = mysqli_fetch_assoc($query)){
+		array_push($underEmpList, $row["EmpId"]);
+	}
+
+	$empIds = implode("','", $underEmpList);
+
+	$sql = "SELECT `m`.`MappingId`, `m`.`EmpId`, `e`.`Name` AS `EmpName`, `m`.`MenuId`, `mu`.`Cat`, `m`.`LocationId`, l.Name as LocName, `m`.`Verifier`, `m`.`Approver`, e1.Name AS `VerifierName`, e2.Name AS `ApproverName`, `m`.`Active` FROM `Mapping` AS `m` LEFT JOIN `Employees` AS `e` ON `m`.`EmpId` = `e`.`EmpId` LEFT JOIN `Employees` AS `e1` ON `m`.`Verifier` = `e1`.`EmpId` LEFT JOIN `Employees` AS `e2` ON `m`.`Verifier` = `e2`.`EmpId` left join Location l on m.LocationId=l.LocationId LEFT JOIN `Menu` AS `mu` ON `m`.`MenuId` = `mu`.`MenuId` where m.EmpId in ('$empIds') ORDER BY `m`.`MappingId`  DESC";
+
 	$query=mysqli_query($conn,$sql);
 
 	$mappingArr = array();
 	while($row = mysqli_fetch_assoc($query)){
 		$mappingId = $row["MappingId"];
 		$empId = $row["EmpId"];
-		$empName = $row["empName"];
+		$empName = $row["EmpName"];
 		$menuId = $row["MenuId"];
 		$menuName = $row["Cat"];
 		$locId = $row["LocationId"];
+		$locName = $row["LocName"];
 		$verifier = $row["Verifier"];
+		$verifierName = $row["VerifierName"];
 		$approver = $row["Approver"];
+		$approverName = $row["ApproverName"];
 		$active = $row["Active"];
 		
 		$json = array(
@@ -203,26 +279,28 @@ else if($selectType == "mapping"){
 			'MenuId' => $menuId,
 			'menuName' => $menuName,
 			'locId' => $locId,
+			'locName' => $locName,
 			'verifier' => $verifier,
+			'verifierName' => $verifierName,
 			'approver' => $approver,
-			'active' => $active,
+			'approverName' => $approverName,
+			'active' => $active
 
 		);
 		array_push($mappingArr,$json);
 	}
-	$output = array();
 	$output = array('mappingList' => $mappingArr);
 	echo json_encode($output);
 }
 else if($selectType == "checkpoint"){
-	$sql = "SELECT * FROM `Checkpoints` order by `CheckpointId` desc ";
+	$sql = "SELECT * FROM `Checkpoints` where `Tenent_Id`=$tenentId order by `CheckpointId` desc ";
 	$query=mysqli_query($conn,$sql);
 	//echo $sql;
 	$checkpointArr = array();
 	while($row = mysqli_fetch_assoc($query)){
 		$checkpointId = $row["CheckpointId"];
 		$description = $row["Description"];
-		$valuess = $row["Value"];
+		$value = $row["Value"];
 		$typeId = $row["TypeId"];
 		$mandatory = $row["Mandatory"];
 		$editable = $row["Editable"];
@@ -240,8 +318,6 @@ else if($selectType == "checkpoint"){
 			'checkpointId' => $checkpointId,
 			'description' => $description,
 			'value' => $value,
-			//'description' => '',
-			//'value' => '',
 			'typeId' => $typeId,
 			'mandatory' => $mandatory,
 			'editable' => $editable,
@@ -256,7 +332,6 @@ else if($selectType == "checkpoint"){
 		);
 		array_push($checkpointArr,$json);
 	}
-	$output = array();
 	$output = array('checkpointList' => $checkpointArr);
 	echo json_encode($output);
 }
@@ -274,12 +349,15 @@ else if($selectType == "inputType"){
 		);
 		array_push($inputTypeArr,$json);
 	}
-	$output = array();
 	$output = array('inputTypeList' => $inputTypeArr);
 	echo json_encode($output);
 }
 else if($selectType == "checklist"){
-	$checklistSql = "SELECT * FROM `Menu` where `Active` = 1 ";
+	// require 'AppDefaultColorClass.php';
+	// $classObj = new AppDefaultColorClass();
+	// $appColors = $classObj->getAppDefaultColor();
+
+	$checklistSql = "SELECT m.*, r.Role as VerifierRole, r1.Role as ApproverRole FROM Menu m left join Role r  on m.Verifier_RoleId=r.RoleId left join Role r1 on m.Approver_RoleId=r1.RoleId order by m.MenuId desc";
 	$checklistQuery=mysqli_query($conn,$checklistSql);
 	$checklistArr = array();
 	while($checklistRow = mysqli_fetch_assoc($checklistQuery)){
@@ -292,23 +370,42 @@ else if($selectType == "checklist"){
 		$approver = $checklistRow["Approver"];
 		$geoFence = $checklistRow["GeoFence"];
 		$icons = $checklistRow["Icons"];
+		$expIcons = explode(",", $icons);
+		$colors = $checklistRow["Colors"];
+		// if($colors == ""){
+		// 	$colors = $appColors;
+		// }
+		$colorsExp = explode(":", $colors);
+		$catBgFontColor = $colorsExp[0];
+		$subCatBgFontColor = $colorsExp[1];
+		$capBgFontColor = $colorsExp[2];
+
 		$active = $checklistRow["Active"];
 
 		$json = array(
 			'menuId' => $menuId,
 			'category' => $category,
+			'catBgFontColor' => $catBgFontColor,
+			'categoryIcon' => $expIcons[0],
 			'subcategory' => $subcategory,
+			'subCategoryIcon' => $expIcons[1] == null ? "" : $expIcons[1],
+			'subCatBgFontColor' => $subCatBgFontColor,
 			'caption' => $caption,
+			'captionIcon' => $expIcons[2] == null ? "" : $expIcons[2],
+			'capBgFontColor' => $capBgFontColor,
 			'checkpoint' => $checkpoint,
 			'verifier' => $verifier,
+			'verifierRoleId' => $checklistRow["Verifier_RoleId"],
+			'verifierRole' => $checklistRow["VerifierRole"],
 			'approver' => $approver,
+			'approverRoleId' => $checklistRow["Approver_RoleId"],
+			'approverRole' => $checklistRow["ApproverRole"],
 			'geoFence' => $geoFence,
-			'icons' => $icons,
+			// 'icons' => $icons,
 			'active' => $active
 		);
 		array_push($checklistArr,$json);
 	}
-	$output = array();
 	$output = array('checklist' => $checklistArr);
 	echo json_encode($output);
 }
@@ -318,7 +415,7 @@ else if($selectType == "headerMenu"){
 	$headerMenuQuery=mysqli_query($conn,$headerMenuSql);
 	$headerMenuArr = array();
 	while($headerMenuRow = mysqli_fetch_assoc($headerMenuQuery)){
-		$id = $headerMenuRow["Id"];
+		$id = $headerMenuRow["PortalMenuId"];
 		$menuName = $headerMenuRow["Name"];
 		$routerLink = $headerMenuRow["Router_Link"];
 
@@ -329,12 +426,43 @@ else if($selectType == "headerMenu"){
 		);
 		array_push($headerMenuArr,$json);
 	}
-	$output = array();
 	$output = array('headerMenuList' => $headerMenuArr);
 	echo json_encode($output);
 }
+else if($selectType == "portalMenu"){
+	$filterSql = "";
+	if($loginEmpRoleId == "4"){
+
+	}
+	else{
+		$roleSql = "SELECT `PortalMenuId` FROM `Role` where `RoleId`='$loginEmpRoleId' and `Tenent_Id`=$tenentId";
+		$roleQuery=mysqli_query($conn,$roleSql);
+		$roleRow = mysqli_fetch_assoc($roleQuery);
+		$portalMenuId = $roleRow["PortalMenuId"];
+		if($portalMenuId != null && $portalMenuId != "")
+		$filterSql .= "and `PortalMenuId` in ($portalMenuId)";
+
+	}
+	$headerMenuSql = "SELECT * FROM `Header_Menu` where 1=1 $filterSql and `Is_Active` = 1 order by `Display_Order` ";
+	$headerMenuQuery=mysqli_query($conn,$headerMenuSql);
+	$portalMenuArr = array();
+	while($headerMenuRow = mysqli_fetch_assoc($headerMenuQuery)){
+		$id = $headerMenuRow["PortalMenuId"];
+		$menuName = $headerMenuRow["Name"];
+		$routerLink = $headerMenuRow["Router_Link"];
+
+		$json = array(
+			'portalMenuId' => $id,
+			'menuName' => $menuName,
+			'routerLink' => $routerLink
+		);
+		array_push($portalMenuArr,$json);
+	}
+	$output = array('portalMenuList' => $portalMenuArr);
+	echo json_encode($output);
+}
 else if($selectType == "role"){
-	$roleSql = "SELECT * FROM `Role` ";
+	$roleSql = "SELECT * FROM `Role` where `Tenent_Id`=$tenentId order by `RoleId` desc ";
 	$roleQuery=mysqli_query($conn,$roleSql);
 	$roleArr = array();
 	while($roleRow = mysqli_fetch_assoc($roleQuery)){
@@ -342,14 +470,30 @@ else if($selectType == "role"){
 		$roleName = $roleRow["Role"];
 		$menuId = $roleRow["MenuId"];
 
+		$checklistSql = "SELECT * FROM Menu where MenuId in ($menuId) ORDER BY FIELD(MenuId,$menuId)";
+		$checklistQuery=mysqli_query($conn,$checklistSql);
+		$checklistArr = array();
+		while($checklistRow = mysqli_fetch_assoc($checklistQuery)){
+			$cat = $checklistRow["Cat"];
+			$sub = $checklistRow["Sub"];
+			$cap = $checklistRow["Caption"];
+			$menuName = $cat;
+			if($sub !='')
+				$menuName .= ' -- '.$sub;
+			if($cap != "")
+				$menuName .= ' -- '.$cap;
+
+			array_push($checklistArr,$menuName);
+		}
+
 		$json = array(
 			'roleId' => $roleId,
 			'roleName' => $roleName,
-			'menuId' => $menuId
+			'menuId' => $menuId,
+			'menuList' => $checklistArr
 		);
 		array_push($roleArr,$json);
 	}
-	$output = array();
 	$output = array('roleList' => $roleArr);
 	echo json_encode($output);
 }
@@ -372,18 +516,162 @@ else if($selectType == "caption"){
 		);
 		array_push($capArr,$json);
 	}
-	$output = array();
 	$output = array('captionList' => $capArr);
 	echo json_encode($output);
 }
 else if($selectType == "myEmployee"){
-	$sql = "SELECT `EmpId` as `empId`, `Name` as `empName` FROM `Employees` where `RMId` = '$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1";
+	$filterSql = "";
+	if($loginEmpRoleId == 4){
+
+	}
+	else{
+		$filterSql .= "and (`RMId` = '$loginEmpId' or `EmpId` = '$loginEmpId')";
+	}
+	$sql = "SELECT `EmpId` as `empId`, `Name` as `empName` FROM `Employees` where 1=1 $filterSql and `Tenent_Id` = $tenentId and `Active` = 1";
 	$query=mysqli_query($conn,$sql);
 	$empList=array();
 	while($row = mysqli_fetch_assoc($query)){
+		$empId = $row["empId"];
+
+		$dateList = array();
+		$dateSql = "SELECT distinct date(`MobileDateTime`) as `DataDate` FROM `Activity` where `EmpId`='$empId' ";
+		$dateQuery=mysqli_query($conn,$dateSql);
+		while($dateRow = mysqli_fetch_assoc($dateQuery)){
+			array_push($dateList,$dateRow["DataDate"]);
+		}
+
+		$row["dateList"] = $dateList;
 		array_push($empList,$row);
 	}
 	echo json_encode($empList);
+}
+else if($selectType == "attendance"){
+	$filterSql = "";
+	if($loginEmpRoleId == "4"){
+		
+	}
+	else{
+		// Self and RM
+		
+		$filterSql .= "and (`RMId` = '$loginEmpId' or `EmpId` = '$loginEmpId')";
+	}
+
+	$underEmpList = array();
+	$sql = "SELECT `EmpId` FROM `Employees` WHERE 1=1 $filterSql and `Tenent_Id`='$tenentId' and `Active`=1";
+	$query=mysqli_query($conn,$sql);
+	while($row = mysqli_fetch_assoc($query)){
+		array_push($underEmpList, $row["EmpId"]);
+	}
+
+	$empIds = implode("','", $underEmpList);
+
+	$attendanceList = array();
+	$filterSql = "";
+	$filterStartDate = $jsonData->filterStartDate;
+	$filterEndDate = $jsonData->filterEndDate;
+
+	if($filterStartDate != ""){
+		$filterSql .= " and a.AttendanceDate >= '$filterStartDate' ";
+	}
+	if($filterEndDate != ""){
+		$filterSql .= " and a.AttendanceDate <= '$filterEndDate' ";
+	}
+
+	// $attSql = "SELECT * FROM `Attendance` where `EmpId` in ('".$empIds."') ".$filterSql." ORDER by `AttendanceDate` desc";
+	$attSql = "SELECT a.*, round(sum(d.Distance_KM),2) AS Distance FROM Attendance AS a LEFT JOIN DistanceTravel AS d ON a.EmpId=d.Emp_Id AND a.AttendanceDate=d.Visit_Date where a.EmpId in ('$empIds') $filterSql GROUP BY a.EmpId, a.AttendanceDate ORDER by a.AttendanceDate desc";
+	// echo $attSql;
+	$attQuery=mysqli_query($conn,$attSql);
+	$srNo=0;
+	while($attRow = mysqli_fetch_assoc($attQuery)){
+		$inDateTime = $attRow["InDateTime"] == null ? '' : $attRow["InDateTime"];
+		$outDateTime = $attRow["OutDateTime"] == null ? '' : $attRow["OutDateTime"];
+		$workingHours = $attRow["WorkingHours"] == null ? '' : $attRow["WorkingHours"];
+		$inLatlong = $attRow["InLatlong"] == null ? '' : $attRow["InLatlong"];
+		$outLatlong = $attRow["OutLatlong"] == null ? '' : $attRow["OutLatlong"];
+		$srNo++;
+		$attJson = array(
+			'srNo' => $srNo,
+			'empId' => $attRow["EmpId"], 
+			'name' => $attRow["Name"], 
+			'attendanceDate' => $attRow["AttendanceDate"], 
+			'inDateTime' => $inDateTime, 
+			'outDateTime' => $outDateTime, 
+			'workingHours' => $workingHours, 
+			'inLatlong' => $inLatlong, 
+			'outLatlong' => $outLatlong,
+			'distance' => $attRow["Distance"]
+		);
+		array_push($attendanceList, $attJson);
+	}
+	$output = array('attendanceList' => $attendanceList);
+	echo json_encode($output);
+}
+else if($selectType == "ticket"){
+	$filterSql = "";
+	if($loginEmpRoleId == "4"){
+		
+	}
+	else{
+		// Self and RM
+		
+		$filterSql .= "and (`RMId` = '$loginEmpId' or `EmpId` = '$loginEmpId')";
+	}
+
+	$underEmpList = array();
+	$sql = "SELECT `EmpId` FROM `Employees` WHERE 1=1 $filterSql and `Tenent_Id`='$tenentId' and `Active`=1";
+	$query=mysqli_query($conn,$sql);
+	while($row = mysqli_fetch_assoc($query)){
+		array_push($underEmpList, $row["EmpId"]);
+	}
+
+	$empIds = implode("','", $underEmpList);
+
+	$sql = "SELECT m.MappingId as mappingId, e.Name as name, e1.Name as verifierName, e2.Name as approverName, m.Start as startDate, m.End as endDate, m.ActivityId, h.VerifierActivityId, h.ApproverActivityId FROM Mapping m join Employees e on m.EmpId=e.EmpId join Employees e1 on m.Verifier=e1.EmpId join Employees e2 on m.Approver=e2.EmpId left join TransactionHDR h on m.ActivityId=h.ActivityId where 1=1 and m.EmpId in ('$empIds') and TktNumber is not null";
+	$query=mysqli_query($conn,$sql);
+	$ticketList = array();
+	while($row = mysqli_fetch_assoc($query)){
+		$actId = $row["ActivityId"];
+		$veriActId = $row["VerifierActivityId"];
+		$appActId = $row["ApproverActivityId"];
+
+		$status = $actId == 0 ? "Pending" : "Done";
+		$veriStatus = $veriActId == null ? "Pending" : "Done";
+		$appStatus = $appActId == null ? "Pending" : "Done";
+		$row["status"] = $status;
+		$row["verifyStatus"] = $veriStatus;
+		$row["approveStatus"] = $appStatus;
+		unset($row["ActivityId"]);
+		unset($row["VerifierActivityId"]);
+		unset($row["ApproverActivityId"]);
+		array_push($ticketList, $row);
+	}
+	$output = array('ticketList' => $ticketList);
+	echo json_encode($output);
+}
+else if($selectType == "EmpLocMapping"){
+	$a = "";
+	if($loginEmpRoleId != 4){
+		$a = "and empLoc.Emp_Id = '$loginEmpId' ";
+	}
+	$sql = "SELECT empLoc.Id, loc.State, loc.City, loc.Area, loc.Name as locName, loc.GeoCoordinates, empLoc.Emp_Id, emp.Name as empName FROM EmployeeLocationMapping empLoc join Location loc on empLoc.LocationId = loc.LocationId left join Employees emp on empLoc.Emp_Id = emp.EmpId where 1=1 ".$a." and empLoc.Tenent_Id = $tenentId";
+	$query=mysqli_query($conn,$sql);
+	$empLocMappingArr = array();
+	while($row = mysqli_fetch_assoc($query)){
+		
+		$json = array(
+			'id' => $row["Id"],
+			'locName' => $row["locName"],
+			'empId' => $row["Emp_Id"],
+			'empName' => $row["empName"]
+		);
+		array_push($empLocMappingArr,$json);
+	}
+	$output = array('empLocMappingList' => $empLocMappingArr);
+	echo json_encode($output);
+}
+else{
+	$output = array('message' => 'Invalid selectType');
+	echo json_encode($output);
 }
 
 

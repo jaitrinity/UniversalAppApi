@@ -4,6 +4,7 @@ header("Access-Control-Allow-Headers:content-type");
 include("dbConfiguration.php");
 
 $json = file_get_contents('php://input');
+file_put_contents('/var/www/trinityapplab.co.in/UniversalApp/log/activity_'.date("Y-m-d").'.log', date("Y-m-d H:i:s").' '.json_encode($json)."\n", FILE_APPEND);
 $jsonData=json_decode($json);
 
 $mapId = $jsonData->mappingId;

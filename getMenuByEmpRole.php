@@ -13,7 +13,8 @@ $tenentId = $jsonData->tenentId;
 
 $menuIdArr = [];
 if($loginEmpRoleId != '4'){
-	$sql = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `EmpId` = '$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1 ";
+	// $sql = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `EmpId` = '$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1 ";
+	$sql = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `EmpId` = '$loginEmpId' and `Active` = 1 ";
 	$query=mysqli_query($conn,$sql);
 	while($row = mysqli_fetch_assoc($query)){
 		$menuId = $row["MenuId"];
@@ -22,7 +23,27 @@ if($loginEmpRoleId != '4'){
 		}
 	}
 
-	$sql1 = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `Verifier` = '$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1 ";
+	// $sql1 = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `Verifier` = '$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1 ";
+	// $sql1 = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `Verifier` = '$loginEmpId' and `Active` = 1 ";
+	// $query1=mysqli_query($conn,$sql1);
+	// while($row1 = mysqli_fetch_assoc($query1)){
+	// 	$menuId1 = $row1["MenuId"];
+	// 	if(!in_array($menuId1, $menuIdArr)){
+	// 		array_push($menuIdArr,$menuId1);
+	// 	}
+	// }
+
+	// $sql2 = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `Approver` = '$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1 ";
+	// $sql2 = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `Approver` = '$loginEmpId' and `Active` = 1 ";
+	// $query2=mysqli_query($conn,$sql2);
+	// while($row2 = mysqli_fetch_assoc($query2)){
+	// 	$menuId2 = $row2["MenuId"];
+	// 	if(!in_array($menuId2, $menuIdArr)){
+	// 		array_push($menuIdArr,$menuId2);
+	// 	}
+	// }
+
+	$sql1 = "SELECT DISTINCT `MenuId` FROM `FlowActivityMaster` WHERE find_in_set('$loginEmpId', `EmpId`) <> 0 ";
 	$query1=mysqli_query($conn,$sql1);
 	while($row1 = mysqli_fetch_assoc($query1)){
 		$menuId1 = $row1["MenuId"];
@@ -31,16 +52,8 @@ if($loginEmpRoleId != '4'){
 		}
 	}
 
-	$sql2 = "SELECT DISTINCT `MenuId` FROM `Mapping` WHERE `Approver` = '$loginEmpId' and `Tenent_Id` = $tenentId and `Active` = 1 ";
-	$query2=mysqli_query($conn,$sql2);
-	while($row2 = mysqli_fetch_assoc($query2)){
-		$menuId2 = $row2["MenuId"];
-		if(!in_array($menuId2, $menuIdArr)){
-			array_push($menuIdArr,$menuId2);
-		}
-	}
-
-	$sql4 = "SELECT DISTINCT `MenuId` from `Role` where `RoleId` = $loginEmpRoleId and `Tenent_Id` = $tenentId ";
+	// $sql4 = "SELECT DISTINCT `MenuId` from `Role` where `RoleId` = $loginEmpRoleId and `Tenent_Id` = $tenentId ";
+	$sql4 = "SELECT DISTINCT `MenuId` from `Role` where `RoleId` = $loginEmpRoleId ";
 	$query4=mysqli_query($conn,$sql4);
 	while($row4 = mysqli_fetch_assoc($query4)){
 		$menuId4 = $row4["MenuId"];
