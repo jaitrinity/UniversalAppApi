@@ -23,11 +23,12 @@ jobs:
         docker build -t ${{ secrets.DOCKER_USERNAME }}/universalapp-api:latest .
         docker push ${{ secrets.DOCKER_USERNAME }}/universalapp-api:latest
 
-    - name: Deploy on EC2
+    - name: Deploy on Linux
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
         key: ${{ secrets.SSH_KEY }}
         script: |
           docker pull ${{ secrets.DOCKER_USERNAME }}/universalapp-api:latest
