@@ -1,0 +1,36 @@
+name: Docker CI/CD PHP API
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Login to Docker Hub
+      run: |
+        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
+        -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Build & Push Image
+      run: |
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/universalapp-api:latest .
+        docker push ${{ secrets.DOCKER_USERNAME }}/universalapp-api:latest
+
+    - name: Deploy on EC2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          docker pull ${{ secrets.DOCKER_USERNAME }}/universalapp-api:latest
+          docker stop universalapp-api || true
+          docker rm universalapp-api || true
+          docker run -d --restart unless-stopped --env-file /home/${{ secrets.SSH_USER }}/.env -p 8081:80 --name universalapp-api ${{ secrets.DOCKER_USERNAME }}/universalapp-api:latest
